@@ -1,0 +1,28 @@
+{
+  "ridge": {
+    "cv_rmse": 0.5580748378823102,
+    "features": [
+      "type",
+      "service_tier_id",
+      "distance_mean",
+      "surge_min",
+      "surge_mean",
+      "surge_max"
+    ],
+    "params": {
+      "use_api_calls": false,
+      "use_distance_range": false,
+      "use_surge": true,
+      "use_humidity": false,
+      "use_rain": false,
+      "use_temp": false,
+      "use_wind": false,
+      "use_clouds": false,
+      "use_hour": false,
+      "use_dow": false,
+      "use_weekend": false,
+      "alpha": 0.08652832513150045,
+      "interactions": true
+    }
+  }
+}
