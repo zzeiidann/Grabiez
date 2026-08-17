@@ -56,33 +56,7 @@ The project deliberately separates two objectives:
 
 ## How it works
 
-```mermaid
-flowchart LR
-    User[User]
-    Web[Mobile PWA]
-    API[FastAPI backend]
-    Geo[Nominatim<br/>Geocoding API]
-    Route[OSRM<br/>Routing API]
-    Weather[Open-Meteo<br/>Weather API]
-    FE[Feature engineering<br/>Units + cyclical time]
-    Model[Interaction Ridge<br/>Model artifact]
-    Aggregate[Tier aggregation<br/>Mean + P20/P80]
-
-    User -->|Pickup and destination| Web
-    Web -->|GET /api/geocode| API
-    API -->|Location query| Geo
-    Geo -->|Latitude and longitude| API
-    Web -->|POST /api/estimate| API
-    API -->|Coordinates| Route
-    Route -->|Distance, duration, geometry| API
-    API -->|Pickup coordinates| Weather
-    Weather -->|Current weather| API
-    API --> FE
-    FE -->|13 model features| Model
-    Model -->|Prediction per historical type| Aggregate
-    Aggregate -->|Economy, Standard, Max| API
-    API -->|Route and fare estimates| Web
-```
+![Grabiez end-to-end pricing architecture](docs/images/architecture-flowchart.png)
 
 An editable diagrams.net source is available at [`docs/architecture.drawio`](docs/architecture.drawio).
 
