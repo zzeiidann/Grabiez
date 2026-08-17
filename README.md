@@ -178,6 +178,51 @@ Eksperimen awal menunjukkan raw `type` membawa baseline harga yang sangat besar.
 
 Model deployment menggunakan alpha **46,4159**, dipilih melalui chronological cross-validation, dengan CV RMSE **1,13865** pada feature contract production. Nilai ini berbeda dari competition model karena fitur agregat yang tidak tersedia real-time sengaja dibuang.
 
+### Feature engineering contract
+
+Model menerima **13 fitur final**: dua categorical dan sebelas numeric.
+
+#### Categorical features
+
+| Fitur | Asal | Encoding |
+|---|---|---|
+| `type` | 96 kode anonim historis di dalam tier | One-hot, `handle_unknown="ignore"` |
+| `service_tier_id` | Mapping cluster: 1 Hemat, 2 Standard, 3 Max | One-hot |
+
+#### Numeric features
+
+| Fitur final | Nilai runtime | Perhitungan |
+|---|---|---|
+| `distance_mean` | Driving distance OSRM dalam km | `distance_km × 0.621371` |
+| `humidity` | Relative humidity Open-Meteo dalam persen | `relative_humidity_2m / 100` |
+| `rain` | Rain Open-Meteo dalam mm | `rain_mm / 25.4` |
+| `temp` | Temperature Open-Meteo dalam °C | `(temp_c × 9/5) + 32` |
+| `wind` | Wind speed Open-Meteo dalam km/jam | `wind_kmh × 0.621371` |
+| `clouds` | Cloud cover Open-Meteo dalam persen | `cloud_cover / 100` |
+| `hour_sin` | Jam Jakarta, termasuk menit | `sin(2π × hour_decimal / 24)` |
+| `hour_cos` | Jam Jakarta, termasuk menit | `cos(2π × hour_decimal / 24)` |
+| `dow_sin` | Hari ke-0 sampai 6 | `sin(2π × day_of_week / 7)` |
+| `dow_cos` | Hari ke-0 sampai 6 | `cos(2π × day_of_week / 7)` |
+| `is_weekend` | Hari Jakarta | `1` untuk Sabtu/Minggu, selainnya `0` |
+
+Kenapa waktu memakai sine dan cosine? Jam 23:59 harus dianggap dekat dengan 00:00, begitu juga Minggu dengan Senin. Angka jam biasa tidak memiliki sifat melingkar tersebut.
+
+Fitur numerik yang kosong diimputasi menggunakan median train lalu distandardisasi dengan statistik train. Sesudah categorical encoding dan scaling, `PolynomialFeatures(degree=2, interaction_only=True)` membentuk efek pasangan tanpa membuat fitur kuadrat tunggal.
+
+Contoh konteks yang terlihat pada screenshot:
+
+```text
+distance       = 5,84 km  → distance_mean = 3,63 mile
+temperature    = 26°C     → temp          = 78,8°F
+humidity       = 71%      → humidity      = 0,71
+rain           = 0 mm     → rain          = 0
+Jakarta time   = 00:21    → hour_sin/hour_cos
+```
+
+Durasi OSRM tetap ditampilkan kepada pengguna, tetapi **tidak masuk model harga** karena feature contract train memiliki distance aggregates, bukan travel-time real-time yang ekuivalen. Geometry rute juga hanya dipakai untuk menggambar garis pada peta.
+
+### Training pipeline
+
 Pipeline model:
 
 - one-hot encoding untuk raw `type` dan `service_tier_id`;
@@ -186,21 +231,20 @@ Pipeline model:
 - alpha yang dipilih menggunakan chronological cross-validation;
 - target `price_mean`, lalu dikonversi ke rupiah dengan skala artifact.
 
-Fitur production:
+### Bagaimana estimated price dihitung?
 
-| Sumber | Fitur model | Transformasi |
-|---|---|---|
-| OSRM | `distance_mean` | kilometer → mile agar sama dengan schema train |
-| Open-Meteo | `temp` | Celsius → Fahrenheit |
-| Open-Meteo | `humidity`, `clouds` | persen → fraksi 0–1 |
-| Open-Meteo | `rain` | millimeter → inch |
-| Open-Meteo | `wind` | km/jam → mph |
-| Timestamp Jakarta | `hour_sin`, `hour_cos` | encoding siklik 24 jam |
-| Timestamp Jakarta | `dow_sin`, `dow_cos` | encoding siklik 7 hari |
-| Timestamp Jakarta | `is_weekend` | Sabtu/Minggu → 1 |
-| Mapping artifact | `type`, `service_tier_id` | tier tetap hasil clustering train |
+Ridge tidak menggunakan tarif tetap per kilometer. Untuk setiap raw `type` di dalam tier, model menghitung:
 
-Di aplikasi, raw `type` tidak dipilih secara acak. Untuk setiap tier, backend memprediksi seluruh historical `type` yang termasuk tier tersebut dan menghitung ekspektasi berbobot frekuensi train. Quantile prediksi antar-type membentuk rentang harga bawah–atas.
+```text
+prediction(type, context)
+    = intercept
+    + Σ coefficient_j × transformed_feature_j
+    + Σ coefficient_jk × interaction(feature_j, feature_k)
+```
+
+`context` adalah jarak, cuaca, dan fitur waktu yang sama untuk seluruh raw `type` pada request tersebut. Regularisasi L2 saat training mengecilkan koefisien, tetapi tidak ditambahkan lagi secara manual ketika inference.
+
+Karena pengguna hanya memilih tier dan tidak mengetahui raw `type`, backend menjalankan model untuk **semua historical type di dalam tier**. Raw `type` tidak dipilih secara acak. Estimasi pusat lalu dihitung sebagai expected prediction berbobot frekuensi kemunculan type pada train:
 
 Secara ringkas, estimasi pusat sebuah tier adalah:
 
@@ -211,6 +255,16 @@ fare(tier) =      ────────────────────�
 ```
 
 Dengan begitu pengguna cukup memilih Hemat, Standard, atau Max. Backend menangani ketidakpastian raw `type` secara deterministik; tidak ada pemilihan type secara random.
+
+Target train `price_mean` masih berada pada skala asli dataset. Hasil akhir aplikasi dihitung sebagai:
+
+```text
+estimated_price = round_to_nearest_1,000(weighted_prediction × 1,000)
+lower_price     = round_to_nearest_1,000(P20(predictions_per_type) × 1,000)
+upper_price     = round_to_nearest_1,000(P80(predictions_per_type) × 1,000)
+```
+
+Jadi nilai seperti **Rp26.000** pada screenshot bukan `distance × tarif tetap`. Nilai itu merupakan gabungan baseline setiap raw `type`, interaksinya dengan driving distance/cuaca/waktu, lalu dirata-ratakan dengan bobot historis tier Standard. Rentang Rp23.000–Rp28.000 merepresentasikan variasi prediksi antar-type dalam tier, bukan confidence interval statistik formal.
 
 `api_calls` dan seluruh fitur `surge_*` sengaja tidak digunakan pada deployment karena nilainya merupakan agregat platform yang tidak tersedia dari satu request pelanggan. Competition notebook masih dipertahankan untuk eksperimen offline di [`notebooks/grabcar_pricing_optuna.ipynb`](notebooks/grabcar_pricing_optuna.ipynb).
 
