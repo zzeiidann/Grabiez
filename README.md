@@ -61,33 +61,35 @@ Project ini memisahkan dua kebutuhan:
 ## Cara kerja
 
 ```mermaid
-flowchart LR
-    classDef input fill:#E8F7F1,stroke:#00A86B,color:#12382B
-    classDef service fill:#EAF2FF,stroke:#3973D6,color:#16345F
-    classDef ml fill:#FFF3DE,stroke:#F59E0B,color:#573A08
-    classDef output fill:#E7F8EF,stroke:#008A58,color:#12382B
+sequenceDiagram
+    actor User
+    participant Web as Mobile web
+    participant API as FastAPI
+    participant Geo as Nominatim
+    participant Route as OSRM
+    participant Weather as Open-Meteo
+    participant Model as Ridge artifact
 
-    A[Pickup + destination]:::input
-    B[Nominatim<br/>coordinates]:::service
-    C[OSRM<br/>distance + route]:::service
-    D[Open-Meteo<br/>live weather]:::service
-    E[Jakarta time<br/>cyclic features]:::service
-    F[Feature contract<br/>unit conversion]:::ml
-    G[Interaction Ridge<br/>type marginalization]:::ml
-    H[Hemat]:::output
-    I[Standard]:::output
-    J[Max]:::output
+    User->>Web: Search pickup and destination
+    Web->>API: GET /api/geocode?q=...
+    API->>Geo: Forward query
+    Geo-->>API: Coordinates
+    API-->>Web: Location candidates
 
-    A --> B
-    B --> C
-    B --> D
-    C --> F
-    D --> F
-    E --> F
-    F --> G
-    G --> H
-    G --> I
-    G --> J
+    User->>Web: Request estimate
+    Web->>API: POST /api/estimate
+    par Route lookup
+        API->>Route: pickup;destination
+        Route-->>API: distance, duration, geometry
+    and Current weather
+        API->>Weather: pickup coordinates
+        Weather-->>API: temp, humidity, rain, wind, clouds
+    end
+    API->>API: Convert units and encode Jakarta time
+    API->>Model: Predict every type in each tier
+    Model-->>API: Per-type price predictions
+    API->>API: Frequency-weighted aggregation
+    API-->>Web: Route and 3 fare estimates
 ```
 
 Frontend menampilkan geometry OSRM sebagai garis rute. Jarak yang masuk ke model adalah **driving distance**, bukan jarak garis lurus/Haversine.
