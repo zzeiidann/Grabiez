@@ -47,7 +47,7 @@ Grabiez estimates three ride options: **GrabCar Economy, GrabCar Standard, and G
 |:---:|:---:|:---:|
 | Interactive map and location search | Interaction Ridge + hierarchical mapping | Real-time routing and weather |
 | Three service options | Chronological cross-validation | Cyclical time features |
-| Point and interval estimates | Frequency-weighted inference | Mobile-first PWA |
+| Point and interval estimates | Uniform cross-type inference | Mobile-first PWA |
 
 The project deliberately separates two objectives:
 
@@ -66,7 +66,7 @@ flowchart LR
     Weather[Open-Meteo<br/>Weather API]
     FE[Feature engineering<br/>Units + cyclical time]
     Model[Interaction Ridge<br/>Model artifact]
-    Aggregate[Tier aggregation<br/>Weighted mean + P20/P80]
+    Aggregate[Tier aggregation<br/>Mean + P20/P80]
 
     User -->|Pickup and destination| Web
     Web -->|GET /api/geocode| API
@@ -259,23 +259,23 @@ prediction(type, context)
 
 The trip `context`—distance, weather, and time—is held constant across the raw types evaluated for that request. L2 regularization shapes the coefficients during training; no penalty term is manually added during inference.
 
-Because users select a product tier rather than an anonymous raw type, the backend evaluates **every historical type in that tier**. It then computes the expected prediction using each type's frequency in the training data:
+Because users select a product tier rather than an anonymous raw type, the backend evaluates **every historical type in that tier**. Each type receives equal weight because the dataset is an almost perfectly balanced panel: every type appears between 210 and 213 times, so observed frequency is not a meaningful estimate of real-world market share.
 
 ```text
-                  Σ frequency(type) × prediction(type, trip context)
-fare(tier) =      ─────────────────────────────────────────────────
-                              Σ frequency(type)
+             Σ prediction(type, trip context)
+fare(tier) = ───────────────────────────────────
+                  number of types in tier
 ```
 
 There is no random type selection. The final application values are:
 
 ```text
-estimated_price = round_to_nearest_1,000(weighted_prediction × 1,000)
+estimated_price = round_to_nearest_1,000(mean_prediction × 1,000)
 lower_price     = round_to_nearest_1,000(P20(predictions_per_type) × 1,000)
 upper_price     = round_to_nearest_1,000(P80(predictions_per_type) × 1,000)
 ```
 
-Therefore, a value such as **Rp26,000** is not `distance × fixed rate`. It combines raw-type baselines with distance, weather, time, and pairwise interaction effects, then averages the predictions using historical tier weights. The Rp23,000–Rp28,000 range describes variation across types within the tier; it is not a formal statistical confidence interval.
+Therefore, a value such as **Rp26,000** is not `distance × fixed rate`. It combines raw-type baselines with distance, weather, time, and pairwise interaction effects, then takes the arithmetic mean across all types in the Standard tier. The Rp23,000–Rp28,000 range describes variation across types within the tier; it is not a formal statistical confidence interval.
 
 `api_calls` and all `surge_*` features are intentionally excluded from deployment because they are platform-level aggregates unavailable from a single customer quote. The offline competition experiments remain available in [`notebooks/grabcar_pricing_optuna.ipynb`](notebooks/grabcar_pricing_optuna.ipynb).
 

@@ -128,12 +128,8 @@ def main() -> None:
     model = make_pipeline(best_alpha)
     model.fit(train[FEATURES], train["price_mean"])
 
-    type_counts = train.groupby("type").size().astype(float)
-    type_weights = {
-        str(tier): {
-            str(raw_type): float(type_counts.loc[raw_type])
-            for raw_type in group["type"].tolist()
-        }
+    types_by_tier = {
+        str(tier): [int(raw_type) for raw_type in sorted(group["type"].tolist())]
         for tier, group in mapping.groupby("service_tier_id")
     }
     tier_names = (
@@ -146,7 +142,7 @@ def main() -> None:
     artifact = {
         "model": model,
         "features": FEATURES,
-        "type_weights": type_weights,
+        "types_by_tier": types_by_tier,
         "tier_names": {str(key): value for key, value in tier_names.items()},
         "price_scale_idr": 1000.0,
         "best_alpha": best_alpha,
@@ -164,7 +160,7 @@ def main() -> None:
                 "price_scale_idr": artifact["price_scale_idr"],
                 "notes": (
                     "Production feature contract excludes API-call and surge aggregates. "
-                    "Raw competition type is marginalized within each service tier at inference."
+                    "Predictions are averaged uniformly across raw types within each service tier."
                 ),
             },
             indent=2,

@@ -35,5 +35,5 @@
     "100.0": 1.2802607075118453
   },
   "price_scale_idr": 1000.0,
-  "notes": "Production feature contract excludes API-call and surge aggregates. Raw competition type is marginalized within each service tier at inference."
+  "notes": "Production feature contract excludes API-call and surge aggregates. Predictions are averaged uniformly across raw types within each service tier."
 }

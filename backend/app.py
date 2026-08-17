@@ -231,16 +231,15 @@ def predict_tiers(distance_km: float, weather: dict, timestamp: pd.Timestamp):
     }
 
     estimates = []
-    for tier_key, weights_by_type in ARTIFACT["type_weights"].items():
+    for tier_key, tier_types in ARTIFACT["types_by_tier"].items():
         tier_id = int(tier_key)
-        raw_types = [int(value) for value in weights_by_type]
-        weights = np.array([weights_by_type[str(value)] for value in raw_types])
+        raw_types = [int(value) for value in tier_types]
         rows = pd.DataFrame(
             [{"type": raw_type, "service_tier_id": tier_id, **common} for raw_type in raw_types]
         )
         predictions = ARTIFACT["model"].predict(rows[ARTIFACT["features"]])
         scale = float(ARTIFACT["price_scale_idr"])
-        center = float(np.average(predictions, weights=weights)) * scale
+        center = float(np.mean(predictions)) * scale
         lower = float(np.quantile(predictions, 0.20)) * scale
         upper = float(np.quantile(predictions, 0.80)) * scale
         estimates.append(
@@ -274,7 +273,7 @@ async def estimate(request: EstimateRequest) -> EstimateResponse:
         estimates=estimates,
         model={
             "name": "Interaction Ridge",
-            "latent_type_strategy": "frequency-weighted marginalization",
+            "latent_type_strategy": "uniform mean across tier types",
             "cv_rmse": ARTIFACT["cv_rmse"],
         },
     )
