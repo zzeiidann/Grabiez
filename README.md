@@ -58,8 +58,6 @@ The project deliberately separates two objectives:
 
 ![Grabiez end-to-end pricing architecture](docs/images/architecture-flowchart.png)
 
-An editable diagrams.net source is available at [`docs/architecture.drawio`](docs/architecture.drawio).
-
 The frontend draws the OSRM geometry as the route line. The model receives the **driving distance**, not a straight-line or Haversine distance.
 
 ## From anonymous `type` codes to three products
