@@ -57,36 +57,34 @@ The project deliberately separates two objectives:
 ## How it works
 
 ```mermaid
-sequenceDiagram
-    actor User
-    participant Web as Mobile web
-    participant API as FastAPI
-    participant Geo as Nominatim
-    participant Route as OSRM
-    participant Weather as Open-Meteo
-    participant Model as Ridge artifact
+flowchart LR
+    User[User]
+    Web[Mobile PWA]
+    API[FastAPI backend]
+    Geo[Nominatim<br/>Geocoding API]
+    Route[OSRM<br/>Routing API]
+    Weather[Open-Meteo<br/>Weather API]
+    FE[Feature engineering<br/>Units + cyclical time]
+    Model[Interaction Ridge<br/>Model artifact]
+    Aggregate[Tier aggregation<br/>Weighted mean + P20/P80]
 
-    User->>Web: Search pickup and destination
-    Web->>API: GET /api/geocode?q=...
-    API->>Geo: Forward query
-    Geo-->>API: Coordinates
-    API-->>Web: Location candidates
-
-    User->>Web: Request estimate
-    Web->>API: POST /api/estimate
-    par Route lookup
-        API->>Route: Pickup and destination coordinates
-        Route-->>API: distance, duration, geometry
-    and Current weather
-        API->>Weather: pickup coordinates
-        Weather-->>API: temp, humidity, rain, wind, clouds
-    end
-    API->>API: Convert units and encode Jakarta time
-    API->>Model: Predict every type in each tier
-    Model-->>API: Per-type price predictions
-    API->>API: Frequency-weighted aggregation
-    API-->>Web: Route and three fare estimates
+    User -->|Pickup and destination| Web
+    Web -->|GET /api/geocode| API
+    API -->|Location query| Geo
+    Geo -->|Latitude and longitude| API
+    Web -->|POST /api/estimate| API
+    API -->|Coordinates| Route
+    Route -->|Distance, duration, geometry| API
+    API -->|Pickup coordinates| Weather
+    Weather -->|Current weather| API
+    API --> FE
+    FE -->|13 model features| Model
+    Model -->|Prediction per historical type| Aggregate
+    Aggregate -->|Economy, Standard, Max| API
+    API -->|Route and fare estimates| Web
 ```
+
+An editable diagrams.net source is available at [`docs/architecture.drawio`](docs/architecture.drawio).
 
 The frontend draws the OSRM geometry as the route line. The model receives the **driving distance**, not a straight-line or Haversine distance.
 
