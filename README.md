@@ -4,7 +4,7 @@
 
 ### Real-time GrabCar Fare Estimation
 
-**Mobile-first pricing prototype berbasis rute, cuaca, waktu, dan machine learning**
+**A mobile-first pricing prototype powered by routes, weather, time, and machine learning**
 
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?style=for-the-badge&logo=fastapi&logoColor=white)
@@ -14,15 +14,15 @@
 ![Tests](https://img.shields.io/badge/tests-2%20passed-00A86B?style=flat-square)
 ![Clusters](https://img.shields.io/badge/service%20tiers-3-00A86B?style=flat-square)
 ![Validation](https://img.shields.io/badge/validation-chronological-2457C5?style=flat-square)
-![License](https://img.shields.io/badge/status-portfolio-64748B?style=flat-square)
+![Status](https://img.shields.io/badge/status-portfolio-64748B?style=flat-square)
 
-[Cara kerja](#cara-kerja) · [Clustering](#dari-type-anonim-menjadi-tiga-produk) · [Model](#model-pricing) · [Menjalankan](#menjalankan-aplikasi) · [API](#api-utama)
+[How it works](#how-it-works) · [Clustering](#from-anonymous-type-codes-to-three-products) · [Pricing model](#pricing-model) · [Run locally](#run-locally) · [API](#api)
 
 </div>
 
 ---
 
-Grabiez adalah prototype untuk mengestimasi tiga pilihan harga perjalanan: **GrabCar Hemat, GrabCar Standard, dan GrabCar Max**. Pengguna memilih titik jemput dan tujuan pada peta; aplikasi mengambil jarak jalan, durasi, cuaca, serta waktu terkini sebelum menjalankan model pricing.
+Grabiez estimates three ride options: **GrabCar Economy, GrabCar Standard, and GrabCar Max**. A user selects pickup and destination points on a map; the application retrieves the road distance, route duration, current weather, and local time before running the pricing model.
 
 ## Product showcase
 
@@ -32,33 +32,29 @@ Grabiez adalah prototype untuk mengestimasi tiga pilihan harga perjalanan: **Gra
     <th width="50%">Grabiez implementation</th>
   </tr>
   <tr>
-    <td align="center">
-      <img src="docs/images/grab-reference.png" alt="Reference ride-booking interface" width="390" />
-    </td>
-    <td align="center">
-      <img src="docs/images/grabiez-result.png" alt="Grabiez route and three-tier fare estimation" width="390" />
-    </td>
+    <td align="center"><img src="docs/images/grab-reference.png" alt="Reference ride-booking interface" width="390" /></td>
+    <td align="center"><img src="docs/images/grabiez-result.png" alt="Grabiez route and three-tier fare estimation" width="390" /></td>
   </tr>
   <tr>
-    <td>Inspirasi pengalaman pemilihan rute dan layanan dalam aplikasi ride-hailing.</td>
-    <td>Implementasi Grabiez: rute OSRM, cuaca real-time, dan estimasi Hemat/Standard/Max dari model.</td>
+    <td>Reference for the route and ride-selection experience.</td>
+    <td>OSRM routing, live weather, and model-based Economy/Standard/Max estimates.</td>
   </tr>
 </table>
 
-> Tampilan kiri digunakan sebagai referensi pengalaman pengguna. Grabiez adalah project independen untuk keperluan portfolio dan tidak berafiliasi dengan Grab.
+> The interface on the left is used only as a product-experience reference. Grabiez is an independent portfolio project and is not affiliated with Grab.
 
 | Product experience | Machine learning | Live context |
 |:---:|:---:|:---:|
-| Peta interaktif dan pencarian lokasi | Interaction Ridge + hierarchical mapping | Routing dan cuaca real-time |
-| Tiga pilihan layanan | Chronological cross-validation | Feature engineering waktu |
-| Estimasi dan rentang harga | Frequency-weighted inference | Mobile-first PWA |
+| Interactive map and location search | Interaction Ridge + hierarchical mapping | Real-time routing and weather |
+| Three service options | Chronological cross-validation | Cyclical time features |
+| Point and interval estimates | Frequency-weighted inference | Mobile-first PWA |
 
-Project ini memisahkan dua kebutuhan:
+The project deliberately separates two objectives:
 
-1. **Competition track** mengejar validasi yang sesuai urutan waktu dan menghasilkan submission.
-2. **Deployment track** hanya memakai fitur yang benar-benar dapat tersedia ketika satu pengguna meminta quotation.
+1. The **competition track** evaluates models in chronological order and produces submissions.
+2. The **deployment track** uses only features that can be obtained when a customer requests a quote.
 
-## Cara kerja
+## How it works
 
 ```mermaid
 sequenceDiagram
@@ -79,7 +75,7 @@ sequenceDiagram
     User->>Web: Request estimate
     Web->>API: POST /api/estimate
     par Route lookup
-        API->>Route: pickup;destination
+        API->>Route: Pickup and destination coordinates
         Route-->>API: distance, duration, geometry
     and Current weather
         API->>Weather: pickup coordinates
@@ -89,153 +85,151 @@ sequenceDiagram
     API->>Model: Predict every type in each tier
     Model-->>API: Per-type price predictions
     API->>API: Frequency-weighted aggregation
-    API-->>Web: Route and 3 fare estimates
+    API-->>Web: Route and three fare estimates
 ```
 
-Frontend menampilkan geometry OSRM sebagai garis rute. Jarak yang masuk ke model adalah **driving distance**, bukan jarak garis lurus/Haversine.
+The frontend draws the OSRM geometry as the route line. The model receives the **driving distance**, not a straight-line or Haversine distance.
 
-## Dari `type` anonim menjadi tiga produk
+## From anonymous `type` codes to three products
 
-### Problem yang diselesaikan
+### Problem
 
-Dataset memiliki **20.355 baris dan 96 nilai `type` anonim**. `type` merupakan prediktor harga yang sangat kuat, tetapi kode seperti `0`, `1`, ..., `95` tidak dapat ditampilkan sebagai produk kepada pengguna. Di sisi lain, aplikasi membutuhkan kontrak yang sederhana dan stabil:
+The dataset contains **20,355 rows and 96 anonymous `type` values**. `type` is a strong price predictor, but codes such as `0`, `1`, ..., `95` cannot be presented as customer-facing products. The application instead needs a stable contract:
 
 ```text
-service_tier_id = 1  →  GrabCar Hemat
+service_tier_id = 1  →  GrabCar Economy
 service_tier_id = 2  →  GrabCar Standard
 service_tier_id = 3  →  GrabCar Max
 ```
 
-Masalahnya bukan sekadar mencari cluster dengan silhouette paling tinggi. Jumlah produk merupakan **business constraint**, sehingga output wajib tepat tiga cluster, mudah diurutkan dari murah ke mahal, dan dapat dibekukan menjadi lookup table untuk production.
+This is not merely a search for the largest silhouette score. The number of products is a **business constraint**: the result must contain exactly three clusters, support a clear low-to-high ordering, and be frozen as a production lookup table.
 
-### Kenapa profil distribusi harga?
+### Why use price-distribution profiles?
 
-Satu `type` muncul berkali-kali pada waktu, jarak, dan kondisi cuaca berbeda. Karena itu satu baris tidak cukup untuk mendeskripsikan produk. Setiap `type` lebih dahulu diringkas menjadi profil distribusi harga.
+Each `type` appears across different timestamps, distances, and weather conditions. A single row therefore cannot describe a product. Each type is first summarized as a price-distribution profile.
 
-| Kandidat fitur | Pertimbangan |
+| Candidate feature | Consideration |
 |---|---|
-| Mean | Representatif, tetapi mudah bergeser karena surge dan kondisi ekstrem |
-| Standard deviation | Mengukur volatilitas, bukan posisi tier harga |
-| Maximum | Sangat sensitif terhadap surge/outlier |
-| Skewness | Berguna untuk bentuk distribusi, tetapi sulit dipakai mengurutkan produk |
-| Minimum | Mendekati harga dasar suatu `type` |
-| P10 | Harga rendah yang lebih robust daripada satu nilai minimum |
-| P25 | Level harga bawah yang masih mewakili cukup banyak observasi |
+| Mean | Representative, but can shift because of surge and extreme conditions |
+| Standard deviation | Measures volatility rather than the tier's price position |
+| Maximum | Highly sensitive to surge and outliers |
+| Skewness | Describes distribution shape but does not naturally order products |
+| Minimum | Approximates the base price of a type |
+| P10 | A low-price estimate that is more robust than one minimum observation |
+| P25 | A lower price level supported by a larger share of observations |
 
-Eksperimen dibatasi menjadi tepat **tiga fitur**. Kombinasi akhir adalah `minimum`, `P10`, dan `P25` dari `price_mean`: ketiganya menangkap posisi harga dasar tanpa terlalu dipengaruhi ekor kanan akibat lonjakan harga.
+The experiment was constrained to exactly **three features**. The selected combination is the `minimum`, `P10`, and `P25` of `price_mean`. Together they describe the base-price region without being dominated by the right tail caused by price spikes.
 
-### Kenapa hierarchical clustering?
+### Why hierarchical clustering?
 
-| Algoritma | Keputusan |
+| Algorithm | Decision |
 |---|---|
-| K-Means | Bisa dipaksa menjadi 3 cluster, tetapi mengasumsikan cluster berbentuk sekitar centroid dan sensitif terhadap titik ekstrem |
-| HDBSCAN | Baik untuk noise dan bentuk cluster bebas, tetapi jumlah cluster muncul dari density sehingga tidak menjamin tepat 3 produk |
-| DBSCAN | Memiliki masalah constraint yang sama dan sensitif terhadap pemilihan `eps` |
-| Gaussian Mixture | Memberi probabilitas cluster, tetapi menambah asumsi distribusi dan kompleksitas yang tidak dibutuhkan untuk 96 profil |
-| Agglomerative + Ward | Dipilih: dapat dipotong tepat pada 3 cluster, cocok untuk jumlah objek kecil, dan menghasilkan hierarchy yang mudah diaudit |
+| K-Means | Can force three clusters, but assumes centroid-shaped groups and is sensitive to extreme profiles |
+| HDBSCAN | Handles noise and irregular shapes, but discovers the cluster count from density and cannot guarantee exactly three products |
+| DBSCAN | Has the same cluster-count issue and is sensitive to `eps` |
+| Gaussian Mixture | Provides soft assignments but adds distributional assumptions and unnecessary complexity for 96 profiles |
+| Agglomerative + Ward | Selected: can be cut at exactly three groups, suits a small number of objects, and produces an auditable hierarchy |
 
-Ward linkage menggabungkan kelompok dengan kenaikan within-cluster variance terkecil. Sebelum clustering, ketiga fitur distandardisasi agar skala satu statistik tidak mendominasi jarak Euclidean.
+Ward linkage merges the pair of groups that causes the smallest increase in within-cluster variance. All three features are standardized first so that one statistic cannot dominate the Euclidean distance.
 
-### Pipeline clustering
+### Clustering pipeline
 
-Proses lengkap tersedia di [`notebooks/analysis_price_by_type.ipynb`](notebooks/analysis_price_by_type.ipynb):
+The complete analysis is available in [`notebooks/analysis_price_by_type.ipynb`](notebooks/analysis_price_by_type.ipynb):
 
-1. Bentuk profil setiap `type` dari data train saja.
-2. Gunakan tiga statistik harga dasar: minimum, P10, dan P25 dari `price_mean`.
-3. Standardisasi ketiga fitur.
-4. Jalankan Agglomerative Hierarchical Clustering, Ward linkage, dengan `n_clusters=3`.
-5. Evaluasi pemisahan menggunakan silhouette score: **0,660389**.
-6. Urutkan cluster berdasarkan rata-rata P25, bukan nomor cluster acak.
-7. Beri nama Hemat, Standard, dan Max.
-8. Bekukan mapping sebagai artifact CSV.
+1. Build one profile per `type` using training data only.
+2. Calculate the minimum, P10, and P25 of `price_mean`.
+3. Standardize all three features.
+4. Fit Agglomerative Hierarchical Clustering with Ward linkage and `n_clusters=3`.
+5. Evaluate separation with a silhouette score of **0.660389**.
+6. Order clusters by average P25 instead of arbitrary cluster IDs.
+7. Assign the Economy, Standard, and Max product names.
+8. Freeze the result as a CSV artifact.
 
-Hasil mapping berisi **25 type Hemat, 47 type Standard, dan 24 type Max**, lalu disimpan di [`artifacts/type_cluster_mapping.csv`](artifacts/type_cluster_mapping.csv). Notebook menyertakan visualisasi rentang min–max/mean per `type` serta peta cluster berwarna.
+The final mapping contains **25 Economy types, 47 Standard types, and 24 Max types**. It is stored in [`artifacts/type_cluster_mapping.csv`](artifacts/type_cluster_mapping.csv). The notebook includes the min–mean–max distribution plot and a color-coded cluster visualization.
 
-### Kenapa ini tidak bocor ke test?
+### Why this does not leak test targets
 
-Ini merupakan **target-informed product mapping**, bukan unsupervised learning yang sepenuhnya bebas target. `price_mean` memang dipakai ketika merancang produk, tetapi hanya dari train:
+This is a **target-informed product mapping**, not clustering that is entirely independent of the target. `price_mean` is used to design the product tiers, but only using training data:
 
 ```text
 train price → profile per type → clustering → fixed mapping.csv
                                                │
-test type ─────────────────────────────────────┘ → lookup tier
+test type ─────────────────────────────────────┘ → tier lookup
 production tier selection ─────────────────────┘
 ```
 
-Saat test atau production, sistem hanya melakukan lookup terhadap mapping yang sudah dibekukan. Target test, harga aktual perjalanan baru, dan hasil prediksi tidak pernah dipakai untuk menghitung ulang cluster.
+Test and production requests only look up the frozen mapping. Test targets, actual prices from new trips, and predictions are never used to refit the clusters.
 
 > [!IMPORTANT]
-> Clustering menjembatani kode `type` anonim dengan tiga produk yang dapat dipahami pengguna. Ia tidak menggantikan model pricing dan tidak dihitung ulang dari harga request production.
+> Clustering translates anonymous `type` codes into three understandable products. It does not replace the pricing model and is never recomputed from a production quote.
 
-## Model pricing
+## Pricing model
 
-### Kenapa Interaction Ridge?
+### Why Interaction Ridge?
 
-Eksperimen awal menunjukkan raw `type` membawa baseline harga yang sangat besar. Model tree-based tidak memberi keuntungan yang sebanding pada struktur data ini, sedangkan linear model memberikan generalisasi temporal yang lebih stabil. Ridge dipilih karena:
+Initial experiments showed that raw `type` carries a large price baseline. Tree-based models did not provide a proportional improvement for this data structure, while regularized linear models generalized more consistently across time. Ridge was selected because:
 
-- one-hot `type` menghasilkan banyak koefisien yang saling berkorelasi;
-- regularisasi L2 menahan koefisien agar tidak ekstrem tanpa membuang kategori;
-- polynomial interactions menangkap efek seperti `type × distance` dan `distance × weather`;
-- inference ringan dan mudah dikemas sebagai artifact backend.
+- one-hot encoded `type` creates many correlated coefficients;
+- L2 regularization limits extreme coefficients without discarding categories;
+- pairwise interactions capture effects such as `type × distance` and `distance × weather`;
+- inference is lightweight and easy to package as a backend artifact.
 
-Model deployment menggunakan alpha **46,4159**, dipilih melalui chronological cross-validation, dengan CV RMSE **1,13865** pada feature contract production. Nilai ini berbeda dari competition model karena fitur agregat yang tidak tersedia real-time sengaja dibuang.
+The deployment model uses alpha **46.4159**, selected through chronological cross-validation, and reaches a CV RMSE of **1.13865** under the production feature contract. This differs from the competition model because aggregate features unavailable at request time are intentionally excluded.
 
 ### Feature engineering contract
 
-Model menerima **13 fitur final**: dua categorical dan sebelas numeric.
+The model receives **13 final features**: two categorical and eleven numerical features.
 
 #### Categorical features
 
-| Fitur | Asal | Encoding |
+| Feature | Source | Encoding |
 |---|---|---|
-| `type` | 96 kode anonim historis di dalam tier | One-hot, `handle_unknown="ignore"` |
-| `service_tier_id` | Mapping cluster: 1 Hemat, 2 Standard, 3 Max | One-hot |
+| `type` | The 96 historical anonymous codes within a tier | One-hot with `handle_unknown="ignore"` |
+| `service_tier_id` | Cluster mapping: 1 Economy, 2 Standard, 3 Max | One-hot |
 
-#### Numeric features
+#### Numerical features
 
-| Fitur final | Nilai runtime | Perhitungan |
+| Final feature | Runtime value | Transformation |
 |---|---|---|
-| `distance_mean` | Driving distance OSRM dalam km | `distance_km × 0.621371` |
-| `humidity` | Relative humidity Open-Meteo dalam persen | `relative_humidity_2m / 100` |
-| `rain` | Rain Open-Meteo dalam mm | `rain_mm / 25.4` |
-| `temp` | Temperature Open-Meteo dalam °C | `(temp_c × 9/5) + 32` |
-| `wind` | Wind speed Open-Meteo dalam km/jam | `wind_kmh × 0.621371` |
-| `clouds` | Cloud cover Open-Meteo dalam persen | `cloud_cover / 100` |
-| `hour_sin` | Jam Jakarta, termasuk menit | `sin(2π × hour_decimal / 24)` |
-| `hour_cos` | Jam Jakarta, termasuk menit | `cos(2π × hour_decimal / 24)` |
-| `dow_sin` | Hari ke-0 sampai 6 | `sin(2π × day_of_week / 7)` |
-| `dow_cos` | Hari ke-0 sampai 6 | `cos(2π × day_of_week / 7)` |
-| `is_weekend` | Hari Jakarta | `1` untuk Sabtu/Minggu, selainnya `0` |
+| `distance_mean` | OSRM driving distance in km | `distance_km × 0.621371` |
+| `humidity` | Open-Meteo relative humidity in percent | `relative_humidity_2m / 100` |
+| `rain` | Open-Meteo rain in mm | `rain_mm / 25.4` |
+| `temp` | Open-Meteo temperature in °C | `(temp_c × 9/5) + 32` |
+| `wind` | Open-Meteo wind speed in km/h | `wind_kmh × 0.621371` |
+| `clouds` | Open-Meteo cloud cover in percent | `cloud_cover / 100` |
+| `hour_sin` | Jakarta hour, including minutes | `sin(2π × hour_decimal / 24)` |
+| `hour_cos` | Jakarta hour, including minutes | `cos(2π × hour_decimal / 24)` |
+| `dow_sin` | Day index from 0 to 6 | `sin(2π × day_of_week / 7)` |
+| `dow_cos` | Day index from 0 to 6 | `cos(2π × day_of_week / 7)` |
+| `is_weekend` | Jakarta calendar day | `1` on Saturday/Sunday, otherwise `0` |
 
-Kenapa waktu memakai sine dan cosine? Jam 23:59 harus dianggap dekat dengan 00:00, begitu juga Minggu dengan Senin. Angka jam biasa tidak memiliki sifat melingkar tersebut.
+Sine and cosine keep cyclical values close: 23:59 remains near 00:00, and Sunday remains near Monday. A plain integer encoding would lose this relationship.
 
-Fitur numerik yang kosong diimputasi menggunakan median train lalu distandardisasi dengan statistik train. Sesudah categorical encoding dan scaling, `PolynomialFeatures(degree=2, interaction_only=True)` membentuk efek pasangan tanpa membuat fitur kuadrat tunggal.
+Missing numerical values are imputed with training medians and standardized with training statistics. After categorical encoding and scaling, `PolynomialFeatures(degree=2, interaction_only=True)` generates pairwise effects without adding individual squared terms.
 
-Contoh konteks yang terlihat pada screenshot:
+Example from the product screenshot:
 
 ```text
-distance       = 5,84 km  → distance_mean = 3,63 mile
-temperature    = 26°C     → temp          = 78,8°F
-humidity       = 71%      → humidity      = 0,71
+distance       = 5.84 km  → distance_mean = 3.63 miles
+temperature    = 26°C     → temp          = 78.8°F
+humidity       = 71%      → humidity      = 0.71
 rain           = 0 mm     → rain          = 0
 Jakarta time   = 00:21    → hour_sin/hour_cos
 ```
 
-Durasi OSRM tetap ditampilkan kepada pengguna, tetapi **tidak masuk model harga** karena feature contract train memiliki distance aggregates, bukan travel-time real-time yang ekuivalen. Geometry rute juga hanya dipakai untuk menggambar garis pada peta.
+OSRM duration is displayed to the user but **does not enter the pricing model** because the training feature contract contains distance aggregates rather than an equivalent real-time travel-time feature. Route geometry is used only to draw the map.
 
 ### Training pipeline
 
-Pipeline model:
+- One-hot encode raw `type` and `service_tier_id`.
+- Impute and standardize numerical features.
+- Generate degree-two interaction features.
+- Select alpha through chronological cross-validation.
+- Fit Ridge against `price_mean` and package the full pipeline.
 
-- one-hot encoding untuk raw `type` dan `service_tier_id`;
-- standardisasi fitur numerik;
-- interaksi polynomial derajat dua;
-- alpha yang dipilih menggunakan chronological cross-validation;
-- target `price_mean`, lalu dikonversi ke rupiah dengan skala artifact.
+### How is the estimated price calculated?
 
-### Bagaimana estimated price dihitung?
-
-Ridge tidak menggunakan tarif tetap per kilometer. Untuk setiap raw `type` di dalam tier, model menghitung:
+Ridge does not use a fixed per-kilometer tariff. For every raw `type` inside a tier, it evaluates:
 
 ```text
 prediction(type, context)
@@ -244,11 +238,9 @@ prediction(type, context)
     + Σ coefficient_jk × interaction(feature_j, feature_k)
 ```
 
-`context` adalah jarak, cuaca, dan fitur waktu yang sama untuk seluruh raw `type` pada request tersebut. Regularisasi L2 saat training mengecilkan koefisien, tetapi tidak ditambahkan lagi secara manual ketika inference.
+The trip `context`—distance, weather, and time—is held constant across the raw types evaluated for that request. L2 regularization shapes the coefficients during training; no penalty term is manually added during inference.
 
-Karena pengguna hanya memilih tier dan tidak mengetahui raw `type`, backend menjalankan model untuk **semua historical type di dalam tier**. Raw `type` tidak dipilih secara acak. Estimasi pusat lalu dihitung sebagai expected prediction berbobot frekuensi kemunculan type pada train:
-
-Secara ringkas, estimasi pusat sebuah tier adalah:
+Because users select a product tier rather than an anonymous raw type, the backend evaluates **every historical type in that tier**. It then computes the expected prediction using each type's frequency in the training data:
 
 ```text
                   Σ frequency(type) × prediction(type, trip context)
@@ -256,9 +248,7 @@ fare(tier) =      ────────────────────�
                               Σ frequency(type)
 ```
 
-Dengan begitu pengguna cukup memilih Hemat, Standard, atau Max. Backend menangani ketidakpastian raw `type` secara deterministik; tidak ada pemilihan type secara random.
-
-Target train `price_mean` masih berada pada skala asli dataset. Hasil akhir aplikasi dihitung sebagai:
+There is no random type selection. The final application values are:
 
 ```text
 estimated_price = round_to_nearest_1,000(weighted_prediction × 1,000)
@@ -266,20 +256,20 @@ lower_price     = round_to_nearest_1,000(P20(predictions_per_type) × 1,000)
 upper_price     = round_to_nearest_1,000(P80(predictions_per_type) × 1,000)
 ```
 
-Jadi nilai seperti **Rp26.000** pada screenshot bukan `distance × tarif tetap`. Nilai itu merupakan gabungan baseline setiap raw `type`, interaksinya dengan driving distance/cuaca/waktu, lalu dirata-ratakan dengan bobot historis tier Standard. Rentang Rp23.000–Rp28.000 merepresentasikan variasi prediksi antar-type dalam tier, bukan confidence interval statistik formal.
+Therefore, a value such as **Rp26,000** is not `distance × fixed rate`. It combines raw-type baselines with distance, weather, time, and pairwise interaction effects, then averages the predictions using historical tier weights. The Rp23,000–Rp28,000 range describes variation across types within the tier; it is not a formal statistical confidence interval.
 
-`api_calls` dan seluruh fitur `surge_*` sengaja tidak digunakan pada deployment karena nilainya merupakan agregat platform yang tidak tersedia dari satu request pelanggan. Competition notebook masih dipertahankan untuk eksperimen offline di [`notebooks/grabcar_pricing_optuna.ipynb`](notebooks/grabcar_pricing_optuna.ipynb).
+`api_calls` and all `surge_*` features are intentionally excluded from deployment because they are platform-level aggregates unavailable from a single customer quote. The offline competition experiments remain available in [`notebooks/grabcar_pricing_optuna.ipynb`](notebooks/grabcar_pricing_optuna.ipynb).
 
-### Dua jalur evaluasi
+### Two evaluation tracks
 
-| Track | Tujuan | Fitur | Validasi/output |
+| Track | Objective | Features | Validation/output |
 |---|---|---|---|
-| Competition | Menguji performa pada dataset challenge | Semua fitur train/test yang legal, termasuk raw `type` | Chronological CV dan submission |
-| Deployment | Menjamin input bisa tersedia saat quotation | Jarak, cuaca, waktu, tier, dan mapping historis | Artifact FastAPI siap inference |
+| Competition | Evaluate performance on the challenge dataset | All legal train/test features, including raw `type` | Chronological CV and submission |
+| Deployment | Guarantee that every input is available at quote time | Distance, weather, time, tier, and historical mapping | FastAPI-ready model artifact |
 
-## Tech stack dan layanan
+## Technology and external services
 
-| Layer | Teknologi |
+| Layer | Technology |
 |---|---|
 | Interface | HTML, CSS, JavaScript, Leaflet, PWA |
 | Backend | Python, FastAPI, Pydantic, HTTPX |
@@ -289,70 +279,66 @@ Jadi nilai seperti **Rp26.000** pada screenshot bukan `distance × tarif tetap`.
 | Weather | Open-Meteo |
 | Basemap | CARTO + OpenStreetMap |
 
-- **Nominatim**: geocoding nama lokasi menjadi koordinat. Request dilakukan ketika tombol pencarian ditekan, diberi cache dan rate limit.
-- **OSRM**: menghitung rute berkendara, jarak, estimasi durasi, dan geometry garis rute.
-- **Open-Meteo**: mengambil kondisi cuaca real-time pada titik pickup.
-- **CARTO/OpenStreetMap**: basemap ringan untuk UI.
+- **Nominatim** converts location queries into coordinates. Requests are triggered by an explicit search action, cached, and rate-limited.
+- **OSRM** calculates the driving route, distance, estimated duration, and route geometry.
+- **Open-Meteo** provides current conditions at the pickup location.
+- **CARTO/OpenStreetMap** provides the lightweight basemap.
 
-Endpoint publik cocok untuk demo, bukan traffic production. Deployment komersial sebaiknya memakai instance routing/geocoding sendiri atau provider dengan SLA dan mematuhi ketentuan atribusi masing-masing penyedia.
+Public endpoints are appropriate for a prototype, not production traffic. A commercial deployment should use hosted or contracted routing/geocoding services with an SLA and comply with each provider's attribution requirements.
 
-## Struktur project
+## Project structure
 
 ```text
 Grabiez/
-├── artifacts/                 # model, metadata, dan mapping tier
+├── artifacts/                 # model, metadata, and tier mapping
 ├── backend/
-│   ├── app.py                 # FastAPI, integrasi API, inference
-│   └── build_model.py         # training deployment artifact
+│   ├── app.py                 # FastAPI, external APIs, inference
+│   └── build_model.py         # deployment model training
 ├── data/                      # train, test, sample submission
-├── experiments/               # Optuna DB dan best configs
-├── frontend/                  # PWA, map, dan service worker
+├── experiments/               # Optuna state and best configs
+├── frontend/                  # PWA, map, and service worker
 ├── notebooks/
 │   ├── analysis_price_by_type.ipynb
 │   └── grabcar_pricing_optuna.ipynb
-├── outputs/submissions/       # hasil prediction kompetisi
+├── outputs/submissions/       # competition predictions
 ├── tests/
 ├── requirements.txt
 └── run_app.sh
 ```
 
-## Menjalankan aplikasi
+## Run locally
 
-### 1. Install
-
-Install dependency:
+### 1. Install dependencies
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-### 2. Train ulang — opsional
+### 2. Retrain the artifact — optional
 
-Artifact yang sudah dilatih tersedia di repository. Untuk melatih ulang:
+A trained artifact is included in the repository. To rebuild it:
 
 ```bash
 python -m backend.build_model
 ```
 
-### 3. Start
-
-Jalankan backend dan PWA:
+### 3. Start the application
 
 ```bash
 bash run_app.sh
 ```
 
-Buka `http://localhost:8000`. Dokumentasi API tersedia di `http://localhost:8000/docs`. Untuk mencoba dari HP pada Wi-Fi yang sama, buka `http://<IP-komputer>:8000`.
+Open `http://localhost:8000`. Interactive API documentation is available at `http://localhost:8000/docs`. To test on a phone connected to the same Wi-Fi network, open `http://<computer-ip>:8000`.
 
-## API utama
+## API
 
-| Method | Endpoint | Fungsi |
+| Method | Endpoint | Purpose |
 |---|---|---|
-| `GET` | `/api/health` | status model |
-| `GET` | `/api/geocode?q=...` | pencarian lokasi |
-| `POST` | `/api/estimate` | routing, weather, feature engineering, dan tiga estimasi harga |
+| `GET` | `/api/health` | Check model status |
+| `GET` | `/api/geocode?q=...` | Search for a location |
+| `POST` | `/api/estimate` | Retrieve routing/weather context and return three fare estimates |
 
-Contoh payload estimasi:
+Example request:
 
 ```json
 {
@@ -361,24 +347,24 @@ Contoh payload estimasi:
 }
 ```
 
-## Pengujian
+## Tests
 
 ```bash
 python -m pytest -q
 ```
 
-Test memeriksa health endpoint, mobile shell, kelengkapan tiga tier, urutan tier, serta konsistensi rentang estimasi.
+The tests cover the health endpoint, mobile shell, three-tier completeness and ordering, and fare-range consistency.
 
 ```text
 2 passed
 ```
 
-## Batasan
+## Limitations
 
-- Label Hemat/Standard/Max adalah interpretasi dari data anonim, bukan label resmi dataset.
-- Model belum memakai traffic real-time, ketersediaan driver, toll fee, atau surge internal.
-- Akurasi competition track tidak dapat dianggap langsung sebagai akurasi harga dunia nyata.
-- Model perlu retraining dan monitoring drift sebelum digunakan sebagai sistem pricing production.
+- Economy/Standard/Max are interpretations of anonymous data, not official dataset labels.
+- The model does not include real-time traffic, driver availability, toll fees, or internal surge pricing.
+- Competition-track accuracy should not be treated as real-world pricing accuracy.
+- Production use would require retraining, monitoring, and drift detection.
 
 ---
 
