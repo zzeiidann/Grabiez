@@ -104,6 +104,23 @@ service_tier_id = 3  →  GrabCar Max
 
 This is not merely a search for the largest silhouette score. The number of products is a **business constraint**: the result must contain exactly three clusters, support a clear low-to-high ordering, and be frozen as a production lookup table.
 
+`service_tier_id` is not another learned feature or a second clustering result. It is a stable application ID assigned **after** clustering so the API, model artifact, and frontend can refer to the same product without depending on an arbitrary cluster number:
+
+| Field | Meaning | Example |
+|---|---|---|
+| `type` | Original anonymous category from the dataset | `37` |
+| raw cluster label | Temporary output from the clustering algorithm; order is arbitrary | `0` |
+| `service_tier_id` | Stable product key used by the application | `1` |
+| `service_tier` | Customer-facing product name | `GrabCar Economy` |
+
+The raw cluster label is intentionally removed from the final mapping artifact because retaining both IDs created unnecessary ambiguity.
+
+### What the original problem looks like
+
+![Price behavior across timestamp and anonymous type](docs/images/problem-price-patterns.png)
+
+The upper panel shows temporal price movement. The lower panel shows why `type` cannot simply be discarded: different anonymous codes occupy visibly different price regimes.
+
 ### Why use price-distribution profiles?
 
 Each `type` appears across different timestamps, distances, and weather conditions. A single row therefore cannot describe a product. Each type is first summarized as a price-distribution profile.
@@ -146,6 +163,10 @@ The complete analysis is available in [`notebooks/analysis_price_by_type.ipynb`]
 8. Freeze the result as a CSV artifact.
 
 The final mapping contains **25 Economy types, 47 Standard types, and 24 Max types**. It is stored in [`artifacts/type_cluster_mapping.csv`](artifacts/type_cluster_mapping.csv). The notebook includes the min–mean–max distribution plot and a color-coded cluster visualization.
+
+![Hierarchical mapping from anonymous types to service tiers](docs/images/type-tier-clustering.png)
+
+The left panel maps every anonymous type to its final named service tier. The right panel shows the same assignments in the three-feature clustering space used by the model-selection experiment.
 
 ### Why this does not leak test targets
 
